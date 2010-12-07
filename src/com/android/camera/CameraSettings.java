@@ -22,10 +22,13 @@ import android.content.SharedPreferences;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
 import android.media.CamcorderProfile;
+import android.media.EncoderCapabilities;
+import android.media.EncoderCapabilities.VideoEncoderCap;
 import android.preference.PreferenceManager;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -65,6 +68,11 @@ public class CameraSettings {
     private static final int DEFAULT_VIDEO_DURATION = 30 * 60; // 10 mins
 
     public static final String DEFAULT_VIDEO_QUALITY_VALUE = "high";
+
+    public static final String KEY_VIDEO_SIZE = "pref_camera_videosize_key";
+    public static final String KEY_VIDEO_ENCODER = "pref_camera_videoencoder_key";
+    public static final String KEY_AUDIO_ENCODER = "pref_camera_audioencoder_key";
+    public static final String KEY_VIDEO_DURATION = "pref_camera_video_duration_key";
 
     // MMS video length
     public static final int DEFAULT_VIDEO_DURATION_VALUE = -1;
@@ -115,6 +123,7 @@ public class CameraSettings {
 
     public static boolean setCameraPictureSize(
             String candidate, List<Size> supported, Parameters parameters) {
+        if (supported == null) return false;
         int index = candidate.indexOf('x');
         if (index == NOT_FOUND) return false;
         int width = Integer.parseInt(candidate.substring(0, index));
@@ -130,6 +139,7 @@ public class CameraSettings {
 
     private void initPreference(PreferenceGroup group) {
         ListPreference videoQuality = group.findPreference(KEY_VIDEO_QUALITY);
+        ListPreference videoSize = group.findPreference(KEY_VIDEO_SIZE);
         ListPreference pictureSize = group.findPreference(KEY_PICTURE_SIZE);
         ListPreference whiteBalance =  group.findPreference(KEY_WHITE_BALANCE);
         ListPreference colorEffect = group.findPreference(KEY_COLOR_EFFECT);
@@ -139,6 +149,8 @@ public class CameraSettings {
         ListPreference exposure = group.findPreference(KEY_EXPOSURE);
         ListPreference videoFlashMode =
                 group.findPreference(KEY_VIDEOCAMERA_FLASH_MODE);
+        ListPreference videoEncoder = group.findPreference(KEY_VIDEO_ENCODER);
+        ListPreference audioEncoder = group.findPreference(KEY_AUDIO_ENCODER);
 
         // Since the screen could be loaded from different resources, we need
         // to check if the preference is available here
@@ -158,6 +170,34 @@ public class CameraSettings {
         }
 
         // Filter out unsupported settings / options
+        if (audioEncoder != null) {
+            filterUnsupportedOptions(group, audioEncoder, new ArrayList<String>(VideoCamera.AUDIO_ENCODER_TABLE.keySet()));
+        }
+
+        if (videoSize != null && videoEncoder != null) {
+            filterUnsupportedOptions(group, videoEncoder, new ArrayList<String>(VideoCamera.VIDEO_ENCODER_TABLE.keySet()));
+
+            final int selectedEncoder = VideoCamera.VIDEO_ENCODER_TABLE.get(videoEncoder.getValue());
+            VideoEncoderCap cap = null;
+            for (VideoEncoderCap vc : EncoderCapabilities.getVideoEncoders()) {
+                if (vc.mCodec == selectedEncoder) {
+                    cap = vc;
+                    break;
+                }
+            }
+            if (cap == null) {
+                Log.wtf(TAG, "Unknown encoder! " + selectedEncoder);
+            }
+
+            final List<Size> validSizesForEncoder = new ArrayList<Size>();
+            for (Size size : mParameters.getSupportedPreviewSizes()) {
+                if (size.width <= cap.mMaxFrameWidth && size.height <= cap.mMaxFrameHeight) {
+                    validSizesForEncoder.add(size);
+                }
+            }
+            filterUnsupportedOptions(group, videoSize, sizeListToStringList(validSizesForEncoder));
+        }
+
         if (pictureSize != null) {
             filterUnsupportedOptions(group, pictureSize, sizeListToStringList(
                     mParameters.getSupportedPictureSizes()));
@@ -253,6 +293,11 @@ public class CameraSettings {
         if (pref.findIndexOfValue(value) == NOT_FOUND) {
             pref.setValueIndex(0);
         }
+    }
+
+    private static Size stringToSize(String sizeStr) {
+        String[] dim = sizeStr.split("x");
+        return CameraHolder.instance().getCameraDevice().new Size(Integer.parseInt(dim[0]), Integer.parseInt(dim[1]));
     }
 
     private static List<String> sizeListToStringList(List<Size> sizes) {

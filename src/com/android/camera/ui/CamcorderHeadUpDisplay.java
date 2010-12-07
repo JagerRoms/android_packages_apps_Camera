@@ -43,7 +43,11 @@ public class CamcorderHeadUpDisplay extends HeadUpDisplay {
                 CameraSettings.KEY_SCENE_MODE,
                 CameraSettings.KEY_PICTURE_SIZE,
                 CameraSettings.KEY_JPEG_QUALITY,
-                CameraSettings.KEY_COLOR_EFFECT);
+                CameraSettings.KEY_COLOR_EFFECT,
+                CameraSettings.KEY_VIDEO_SIZE,
+                CameraSettings.KEY_VIDEO_ENCODER,
+                CameraSettings.KEY_AUDIO_ENCODER,
+                CameraSettings.KEY_VIDEO_DURATION);
 
         mOtherSettings = new OtherSettingsIndicator(context, prefs);
         mOtherSettings.setOnRestorePreferencesClickedRunner(new Runnable() {
